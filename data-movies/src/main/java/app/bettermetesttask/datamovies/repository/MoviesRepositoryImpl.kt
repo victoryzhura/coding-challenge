@@ -15,12 +15,20 @@ class MoviesRepositoryImpl @Inject constructor(
     private val mapper: MoviesMapper
 ) : MoviesRepository {
 
-    override suspend fun getMovies(): Result<List<Movie>> {
+    override suspend fun getRemoteMovies(): Result<List<Movie>> {
         return Result.of { restStore.getMovies() }
+    }
+
+    override suspend fun getLocalMovies(): Result<List<Movie>> {
+        return Result.of { localStore.getMovies().map(mapper::mapFromLocal) }
     }
 
     override suspend fun getMovie(id: Int): Result<Movie> {
         return Result.of { mapper.mapFromLocal(localStore.getMovie(id)) }
+    }
+
+    override suspend fun addMovies(movies: List<Movie>): Result<Unit> {
+        return Result.of { localStore.insertMovies(movies.map { mapper.mapToLocal(it) }) }
     }
 
     override fun observeLikedMovieIds(): Flow<List<Int>> {

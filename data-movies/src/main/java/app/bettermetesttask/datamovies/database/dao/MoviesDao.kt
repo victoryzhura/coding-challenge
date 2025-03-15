@@ -10,22 +10,22 @@ import app.bettermetesttask.datamovies.database.entities.MovieEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface MoviesDao{
+interface MoviesDao {
 
     @Query("SELECT * FROM MoviesTable")
-    suspend fun selectMovies(): List<MovieEntity>
+    suspend fun getMovies(): List<MovieEntity>
 
     @Query("SELECT * FROM MoviesTable WHERE id = :id")
-    suspend fun selectMovieById(id: Int): List<MovieEntity>
+    suspend fun getMovieById(id: Int): List<MovieEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMovie(movie: MovieEntity)
+    suspend fun insertMovies(movies: List<MovieEntity>)
 
     @Update
     suspend fun updateMovie(movie: MovieEntity)
 
     @Query("SELECT * FROM LikedMovieEntry")
-    fun selectLikedEntries(): Flow<List<LikedMovieEntity>>
+    fun getLikedEntries(): Flow<List<LikedMovieEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLikedEntry(entry: LikedMovieEntity)
