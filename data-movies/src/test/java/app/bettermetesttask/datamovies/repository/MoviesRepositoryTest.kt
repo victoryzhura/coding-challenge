@@ -167,6 +167,19 @@ internal class MoviesRepositoryTest {
     }
 
     @Test
+    fun `getLikedById should return id of liked movie`() = runTest {
+        val movieId = 1
+        val expected = 1
+
+        whenever(localStore.getLikedById(movieId)).thenReturn(movieId)
+
+        val result = repository.getLikedById(movieId)
+
+        assertEquals(expected, result)
+        verify(localStore).getLikedById(movieId)
+    }
+
+    @Test
     fun `addMovieToFavorites should call localStore likeMovie`() = runTest {
         val expected = 1
 
