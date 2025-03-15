@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,25 +28,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.bettermetesttask.domainmovies.entries.Movie
 import app.bettermetesttask.featurecommon.injection.utils.Injectable
 import app.bettermetesttask.featurecommon.injection.viewmodel.SimpleViewModelProviderFactory
 import app.bettermetesttask.movies.sections.MoviesState
 import app.bettermetesttask.movies.sections.MoviesViewModel
-import coil3.compose.AsyncImage
+import app.bettermetesttask.movies.sections.compose.components.EmptyMovieListView
+import app.bettermetesttask.movies.sections.compose.components.ErrorMessage
+import app.bettermetesttask.movies.sections.compose.components.ErrorStateWithReload
+import app.bettermetesttask.movies.sections.compose.components.LoadingPlaceholder
+import app.bettermetesttask.movies.sections.compose.components.MoviePosterPlaceholder
+import app.bettermetesttask.movies.sections.compose.components.SearchTextField
+import coil3.compose.SubcomposeAsyncImage
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -70,12 +79,23 @@ class MoviesComposeFragment : Fragment(), Injectable {
                 ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
             )
             setContent {
-                val viewState by viewModel.moviesStateFlow.collectAsState()
-                MoviesComposeScreen(viewState, likeMovie = { movie ->
-                    viewModel.likeMovie(movie)
-                }, viewLoaded = {
-                    viewModel.loadMovies()
-                })
+                val viewState by viewModel.moviesStateFlow.collectAsStateWithLifecycle()
+
+                MoviesComposeScreen(
+                    moviesState = viewState,
+                    likeMovie = { movie ->
+                        viewModel.likeMovie(movie)
+                    },
+                    onSearchQueryChanged = { searchText ->
+                        viewModel.onSearchQueryChanged(searchText)
+                    },
+                    onReloadPage = {
+                        viewModel.loadMovies()
+                    },
+                    onItemClick = { movieId ->
+                        viewModel.openMovieDetails(movieId)
+                    }
+                )
             }
         }
     }
@@ -85,27 +105,17 @@ class MoviesComposeFragment : Fragment(), Injectable {
 private fun MoviesComposeScreen(
     moviesState: MoviesState,
     likeMovie: (Movie) -> Unit,
-    viewLoaded: () -> Unit
+    onSearchQueryChanged: (String) -> Unit,
+    onReloadPage: () -> Unit,
+    onItemClick: (Int) -> Unit
 ) {
-    viewLoaded()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
         when (moviesState) {
-            MoviesState.Initial -> {}
-            is MoviesState.Loaded -> {
-                LazyColumn {
-                    items(moviesState.movies) { item ->
-                        MovieItem(item, onLikeClicked = {
-                            likeMovie(item)
-                        })
-                    }
-                }
-            }
-
-            MoviesState.Loading -> {
+            MoviesState.Loading, MoviesState.Initial -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -113,15 +123,64 @@ private fun MoviesComposeScreen(
                     CircularProgressIndicator()
                 }
             }
+
+            is MoviesState.Loaded -> {
+                Column {
+                    SearchTextField(
+                        searchState = moviesState.searchText,
+                        onSearchQueryChanged = onSearchQueryChanged
+                    )
+
+                    when {
+                        moviesState.movies.isEmpty() -> {
+                            EmptyMovieListView("Movie list is empty")
+                        }
+
+                        moviesState.searchText.isNotEmpty() && moviesState.filteredMovies.isEmpty() -> {
+                            EmptyMovieListView("Nothing found matching your request")
+                        }
+
+                        else ->
+                            LazyColumn {
+                                items(
+                                    items = if (moviesState.searchText.isEmpty()) {
+                                        moviesState.movies
+                                    } else {
+                                        moviesState.filteredMovies
+                                    },
+                                    key = { movie -> movie.id }
+                                ) { item ->
+                                    MovieItem(
+                                        movie = item,
+                                        onLikeClicked = {
+                                            likeMovie(item)
+                                        },
+                                        onItemClick = onItemClick
+                                    )
+                                }
+                            }
+                    }
+                }
+            }
+
+            is MoviesState.Error -> {
+                ErrorMessage()
+
+                ErrorStateWithReload(
+                    message = moviesState.message.orEmpty(),
+                    onReloadPage = onReloadPage
+                )
+            }
         }
     }
 }
 
 @Composable
-fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
+fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit, onItemClick: (Int) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onItemClick(movie.id) }
             .padding(8.dp),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -132,9 +191,12 @@ fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AsyncImage(
+            SubcomposeAsyncImage(
                 model = movie.posterPath,
                 contentDescription = "Movie Poster",
+                error = { MoviePosterPlaceholder() },
+                loading = { LoadingPlaceholder() },
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(60.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -144,8 +206,21 @@ fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = movie.title, fontSize = 18.sp, color = Color.Black)
-                Text(text = movie.description, fontSize = 14.sp, color = Color.Gray)
+                Text(
+                    text = movie.title,
+                    fontSize = 18.sp,
+                    color = Color.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = movie.description,
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -164,15 +239,20 @@ fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
 @Composable
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
 private fun PreviewsMoviesComposeScreen() {
-    MoviesComposeScreen(MoviesState.Loaded(
-        List(20) { index ->
-            Movie(
-                index,
-                "Title $index",
-                "Overview $index",
-                null,
-                liked = index % 2 == 0,
-            )
-        }
-    ), likeMovie = {}, viewLoaded = {})
+    MoviesComposeScreen(
+        moviesState = MoviesState.Loaded(
+            List(20) { index ->
+                Movie(
+                    index,
+                    "Title $index",
+                    "Overview $index",
+                    null,
+                    liked = index % 2 == 0,
+                )
+            }
+        ),
+        likeMovie = {},
+        onSearchQueryChanged = {},
+        onReloadPage = {},
+        onItemClick = {})
 }

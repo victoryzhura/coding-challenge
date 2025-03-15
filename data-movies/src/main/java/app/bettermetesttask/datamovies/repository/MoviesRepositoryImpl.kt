@@ -11,21 +11,32 @@ import javax.inject.Inject
 
 class MoviesRepositoryImpl @Inject constructor(
     private val localStore: MoviesLocalStore,
+    private val restStore: MoviesRestStore,
     private val mapper: MoviesMapper
 ) : MoviesRepository {
 
-    private val restStore = MoviesRestStore()
+    override suspend fun getRemoteMovies(): Result<List<Movie>> {
+        return Result.of { restStore.getMovies() }
+    }
 
-    override suspend fun getMovies(): Result<List<Movie>> {
-        TODO("Not yet implemented")
+    override suspend fun getLocalMovies(): Result<List<Movie>> {
+        return Result.of { localStore.getMovies().map(mapper::mapFromLocal) }
     }
 
     override suspend fun getMovie(id: Int): Result<Movie> {
         return Result.of { mapper.mapFromLocal(localStore.getMovie(id)) }
     }
 
+    override suspend fun addMovies(movies: List<Movie>): Result<Unit> {
+        return Result.of { localStore.insertMovies(movies.map { mapper.mapToLocal(it) }) }
+    }
+
     override fun observeLikedMovieIds(): Flow<List<Int>> {
         return localStore.observeLikedMoviesIds()
+    }
+
+    override suspend fun getLikedById(id: Int): Int? {
+        return localStore.getLikedById(id)
     }
 
     override suspend fun addMovieToFavorites(movieId: Int) {
