@@ -4,9 +4,13 @@ import app.bettermetesttask.domainmovies.entries.Movie
 
 sealed class MoviesState {
 
-    object Initial : MoviesState()
+    data object Initial : MoviesState()
 
-    object Loading : MoviesState()
+    data object Loading : MoviesState()
 
-    data class Loaded(val movies: List<Movie>) : MoviesState()
+    data class Loaded(
+        val movies: List<Movie>,
+        val searchText: String = "",
+        val filteredMovies: List<Movie> = emptyList()
+    ) : MoviesState()
 }

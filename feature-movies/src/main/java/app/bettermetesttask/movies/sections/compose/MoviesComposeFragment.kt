@@ -27,7 +27,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.bettermetesttask.domainmovies.entries.Movie
 import app.bettermetesttask.featurecommon.injection.utils.Injectable
 import app.bettermetesttask.featurecommon.injection.viewmodel.SimpleViewModelProviderFactory
@@ -49,6 +49,7 @@ import app.bettermetesttask.movies.sections.MoviesState
 import app.bettermetesttask.movies.sections.MoviesViewModel
 import app.bettermetesttask.movies.sections.compose.components.LoadingPlaceholder
 import app.bettermetesttask.movies.sections.compose.components.MoviePosterPlaceholder
+import app.bettermetesttask.movies.sections.compose.components.SearchTextField
 import coil3.compose.SubcomposeAsyncImage
 import javax.inject.Inject
 import javax.inject.Provider
@@ -74,12 +75,14 @@ class MoviesComposeFragment : Fragment(), Injectable {
                 ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
             )
             setContent {
-                val viewState by viewModel.moviesStateFlow.collectAsState()
+                val viewState by viewModel.moviesStateFlow.collectAsStateWithLifecycle()
+
                 MoviesComposeScreen(
                     moviesState = viewState,
                     likeMovie = { movie ->
                         viewModel.likeMovie(movie)
-                    }
+                    },
+                    onSearchQueryChanged = viewModel::onSearchQueryChanged
                 )
             }
         }
@@ -90,6 +93,7 @@ class MoviesComposeFragment : Fragment(), Injectable {
 private fun MoviesComposeScreen(
     moviesState: MoviesState,
     likeMovie: (Movie) -> Unit,
+    onSearchQueryChanged: (String) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -97,21 +101,27 @@ private fun MoviesComposeScreen(
             .background(Color.White)
     ) {
         when (moviesState) {
-            MoviesState.Initial -> {}
             is MoviesState.Loaded -> {
-                LazyColumn {
-                    items(
-                        items = moviesState.movies,
-                        key = { movie -> movie.id }
-                    ) { item ->
-                        MovieItem(item, onLikeClicked = {
-                            likeMovie(item)
-                        })
+                Column {
+                    SearchTextField(
+                        searchState = moviesState.searchText,
+                        onSearchQueryChanged = onSearchQueryChanged
+                    )
+
+                    LazyColumn {
+                        items(
+                            items = if (moviesState.searchText.isEmpty()) moviesState.movies else moviesState.filteredMovies,
+                            key = { movie -> movie.id }
+                        ) { item ->
+                            MovieItem(item, onLikeClicked = {
+                                likeMovie(item)
+                            })
+                        }
                     }
                 }
             }
 
-            MoviesState.Loading -> {
+            MoviesState.Loading, MoviesState.Initial -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -186,7 +196,7 @@ fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
 private fun PreviewsMoviesComposeScreen() {
     MoviesComposeScreen(
-        MoviesState.Loaded(
+        moviesState = MoviesState.Loaded(
             List(20) { index ->
                 Movie(
                     index,
@@ -196,5 +206,7 @@ private fun PreviewsMoviesComposeScreen() {
                     liked = index % 2 == 0,
                 )
             }
-        ), likeMovie = {})
+        ),
+        likeMovie = {},
+        onSearchQueryChanged = {})
 }

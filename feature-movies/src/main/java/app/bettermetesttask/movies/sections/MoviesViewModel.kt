@@ -8,12 +8,10 @@ import app.bettermetesttask.domainmovies.interactors.AddMovieToFavoritesUseCase
 import app.bettermetesttask.domainmovies.interactors.ObserveMoviesUseCase
 import app.bettermetesttask.domainmovies.interactors.RemoveMovieFromFavoritesUseCase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,7 +36,7 @@ class MoviesViewModel @Inject constructor(
             observeMoviesUseCase()
                 .collect { result ->
                     if (result is Result.Success) {
-                        moviesMutableFlow.emit(MoviesState.Loaded(result.data))
+                        moviesMutableFlow.emit(MoviesState.Loaded(movies = result.data))
                     }
                 }
         }
@@ -53,6 +51,19 @@ class MoviesViewModel @Inject constructor(
             }
         }
     }
+
+    fun onSearchQueryChanged(searchText: String) {
+        moviesMutableFlow.update { movieState ->
+            if (movieState is MoviesState.Loaded) {
+                movieState.copy(
+                    searchText = searchText,
+                    filteredMovies = movieState.movies.filter { movie ->
+                        movie.title.lowercase().trim().contains(searchText.lowercase().trim())
+                    })
+            } else movieState
+        }
+    }
+
 
     fun openMovieDetails(movie: Movie) {
         // TODO: todo todo todo todo
