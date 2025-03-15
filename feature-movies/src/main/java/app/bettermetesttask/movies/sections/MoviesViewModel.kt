@@ -64,7 +64,6 @@ class MoviesViewModel @Inject constructor(
         }
     }
 
-
     fun openMovieDetails(movie: Movie) {
         // TODO: todo todo todo todo
     }

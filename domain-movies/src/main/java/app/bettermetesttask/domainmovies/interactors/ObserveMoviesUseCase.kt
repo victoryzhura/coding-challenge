@@ -28,7 +28,7 @@ class ObserveMoviesUseCase @Inject constructor(
                         }
 
                         if (isNetworkAvailable) {
-                            Result.of { repository.addMovies(movies) }
+                            repository.addMovies(movies)
                         }
 
                         Result.Success(movies)
