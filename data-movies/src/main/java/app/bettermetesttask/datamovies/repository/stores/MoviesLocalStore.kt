@@ -37,4 +37,8 @@ class MoviesLocalStore @Inject constructor(
     fun observeLikedMoviesIds(): Flow<List<Int>> {
         return moviesDao.getLikedEntries().map { movieIdsFlow -> movieIdsFlow.map { it.movieId } }
     }
+
+    suspend fun getLikedById(id: Int): Int? {
+        return moviesDao.getLikedById(id)?.movieId
+    }
 }

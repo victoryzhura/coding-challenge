@@ -16,6 +16,8 @@ interface MoviesRepository {
 
     fun observeLikedMovieIds(): Flow<List<Int>>
 
+    suspend fun getLikedById(id: Int): Int?
+
     suspend fun addMovieToFavorites(movieId: Int)
 
     suspend fun removeMovieFromFavorites(movieId: Int)

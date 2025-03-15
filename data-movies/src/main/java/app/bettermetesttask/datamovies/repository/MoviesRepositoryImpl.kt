@@ -35,6 +35,10 @@ class MoviesRepositoryImpl @Inject constructor(
         return localStore.observeLikedMoviesIds()
     }
 
+    override suspend fun getLikedById(id: Int): Int? {
+        return localStore.getLikedById(id)
+    }
+
     override suspend fun addMovieToFavorites(movieId: Int) {
         localStore.likeMovie(movieId)
     }

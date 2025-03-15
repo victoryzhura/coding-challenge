@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -90,6 +91,9 @@ class MoviesComposeFragment : Fragment(), Injectable {
                     },
                     onReloadPage = {
                         viewModel.loadMovies()
+                    },
+                    onItemClick = { movieId ->
+                        viewModel.openMovieDetails(movieId)
                     }
                 )
             }
@@ -102,7 +106,8 @@ private fun MoviesComposeScreen(
     moviesState: MoviesState,
     likeMovie: (Movie) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
-    onReloadPage: () -> Unit
+    onReloadPage: () -> Unit,
+    onItemClick: (Int) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -110,6 +115,15 @@ private fun MoviesComposeScreen(
             .background(Color.White)
     ) {
         when (moviesState) {
+            MoviesState.Loading, MoviesState.Initial -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
             is MoviesState.Loaded -> {
                 Column {
                     SearchTextField(
@@ -136,21 +150,16 @@ private fun MoviesComposeScreen(
                                     },
                                     key = { movie -> movie.id }
                                 ) { item ->
-                                    MovieItem(item, onLikeClicked = {
-                                        likeMovie(item)
-                                    })
+                                    MovieItem(
+                                        movie = item,
+                                        onLikeClicked = {
+                                            likeMovie(item)
+                                        },
+                                        onItemClick = onItemClick
+                                    )
                                 }
                             }
                     }
-                }
-            }
-
-            MoviesState.Loading, MoviesState.Initial -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
                 }
             }
 
@@ -167,10 +176,11 @@ private fun MoviesComposeScreen(
 }
 
 @Composable
-fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
+fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit, onItemClick: (Int) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onItemClick(movie.id) }
             .padding(8.dp),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -203,6 +213,7 @@ fun MovieItem(movie: Movie, onLikeClicked: (Int) -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
                 Text(
                     text = movie.description,
                     fontSize = 14.sp,
@@ -242,5 +253,6 @@ private fun PreviewsMoviesComposeScreen() {
         ),
         likeMovie = {},
         onSearchQueryChanged = {},
-        onReloadPage = {})
+        onReloadPage = {},
+        onItemClick = {})
 }

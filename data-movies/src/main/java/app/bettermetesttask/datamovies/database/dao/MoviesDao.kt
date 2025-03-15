@@ -27,6 +27,9 @@ interface MoviesDao {
     @Query("SELECT * FROM LikedMovieEntry")
     fun getLikedEntries(): Flow<List<LikedMovieEntity>>
 
+    @Query("SELECT * FROM LikedMovieEntry WHERE movie_id = :id")
+    suspend fun getLikedById(id: Int): LikedMovieEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLikedEntry(entry: LikedMovieEntity)
 
