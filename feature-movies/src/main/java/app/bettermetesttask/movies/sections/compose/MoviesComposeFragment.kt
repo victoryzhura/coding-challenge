@@ -47,6 +47,9 @@ import app.bettermetesttask.featurecommon.injection.utils.Injectable
 import app.bettermetesttask.featurecommon.injection.viewmodel.SimpleViewModelProviderFactory
 import app.bettermetesttask.movies.sections.MoviesState
 import app.bettermetesttask.movies.sections.MoviesViewModel
+import app.bettermetesttask.movies.sections.compose.components.EmptyMovieListView
+import app.bettermetesttask.movies.sections.compose.components.ErrorMessage
+import app.bettermetesttask.movies.sections.compose.components.ErrorStateWithReload
 import app.bettermetesttask.movies.sections.compose.components.LoadingPlaceholder
 import app.bettermetesttask.movies.sections.compose.components.MoviePosterPlaceholder
 import app.bettermetesttask.movies.sections.compose.components.SearchTextField
@@ -82,7 +85,12 @@ class MoviesComposeFragment : Fragment(), Injectable {
                     likeMovie = { movie ->
                         viewModel.likeMovie(movie)
                     },
-                    onSearchQueryChanged = viewModel::onSearchQueryChanged
+                    onSearchQueryChanged = { searchText ->
+                        viewModel.onSearchQueryChanged(searchText)
+                    },
+                    onReloadPage = {
+                        viewModel.loadMovies()
+                    }
                 )
             }
         }
@@ -93,7 +101,8 @@ class MoviesComposeFragment : Fragment(), Injectable {
 private fun MoviesComposeScreen(
     moviesState: MoviesState,
     likeMovie: (Movie) -> Unit,
-    onSearchQueryChanged: (String) -> Unit
+    onSearchQueryChanged: (String) -> Unit,
+    onReloadPage: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -108,15 +117,30 @@ private fun MoviesComposeScreen(
                         onSearchQueryChanged = onSearchQueryChanged
                     )
 
-                    LazyColumn {
-                        items(
-                            items = if (moviesState.searchText.isEmpty()) moviesState.movies else moviesState.filteredMovies,
-                            key = { movie -> movie.id }
-                        ) { item ->
-                            MovieItem(item, onLikeClicked = {
-                                likeMovie(item)
-                            })
+                    when {
+                        moviesState.movies.isEmpty() -> {
+                            EmptyMovieListView("Movie list is empty")
                         }
+
+                        moviesState.searchText.isNotEmpty() && moviesState.filteredMovies.isEmpty() -> {
+                            EmptyMovieListView("Nothing found matching your request")
+                        }
+
+                        else ->
+                            LazyColumn {
+                                items(
+                                    items = if (moviesState.searchText.isEmpty()) {
+                                        moviesState.movies
+                                    } else {
+                                        moviesState.filteredMovies
+                                    },
+                                    key = { movie -> movie.id }
+                                ) { item ->
+                                    MovieItem(item, onLikeClicked = {
+                                        likeMovie(item)
+                                    })
+                                }
+                            }
                     }
                 }
             }
@@ -128,6 +152,15 @@ private fun MoviesComposeScreen(
                 ) {
                     CircularProgressIndicator()
                 }
+            }
+
+            is MoviesState.Error -> {
+                ErrorMessage()
+
+                ErrorStateWithReload(
+                    message = moviesState.message.orEmpty(),
+                    onReloadPage = onReloadPage
+                )
             }
         }
     }
@@ -208,5 +241,6 @@ private fun PreviewsMoviesComposeScreen() {
             }
         ),
         likeMovie = {},
-        onSearchQueryChanged = {})
+        onSearchQueryChanged = {},
+        onReloadPage = {})
 }

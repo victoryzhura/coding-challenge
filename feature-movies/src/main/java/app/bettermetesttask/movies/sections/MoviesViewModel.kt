@@ -33,12 +33,26 @@ class MoviesViewModel @Inject constructor(
 
     fun loadMovies() {
         viewModelScope.launch(Dispatchers.IO) {
-            observeMoviesUseCase()
-                .collect { result ->
-                    if (result is Result.Success) {
+            moviesMutableFlow.emit(MoviesState.Loading)
+
+            observeMoviesUseCase().collect { result ->
+                when (result) {
+                    is Result.Success -> {
                         moviesMutableFlow.emit(MoviesState.Loaded(movies = result.data))
                     }
+
+                    is Result.Error -> {
+                        moviesMutableFlow.emit(
+                            MoviesState.Error(
+                                when (result.error) {
+                                    is IllegalStateException -> result.error.message
+                                    else -> "Something went wrong"
+                                }
+                            )
+                        )
+                    }
                 }
+            }
         }
     }
 

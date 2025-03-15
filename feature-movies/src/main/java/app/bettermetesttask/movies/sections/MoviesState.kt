@@ -13,4 +13,6 @@ sealed class MoviesState {
         val searchText: String = "",
         val filteredMovies: List<Movie> = emptyList()
     ) : MoviesState()
+
+    data class Error(val message: String?) : MoviesState()
 }
